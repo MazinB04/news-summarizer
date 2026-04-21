@@ -2,6 +2,7 @@ import streamlit as st
 import torch
 import os
 import json
+import trafilatura
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 # WEB APP FOR CAPSTONE PROJECT
@@ -38,6 +39,37 @@ def load_summarizer():
     return tokenizer, model
 
 
+def extract_article_from_url(url):
+    """
+    Uses trafilatura to pull the main article text from a URL.
+    Trafilatura is purpose-built for web article extraction — it strips out
+    nav bars, ads, comments, and other junk automatically.
+    It also has built-in fallback extractors if the primary method fails.
+    """
+    try:
+        downloaded = trafilatura.fetch_url(url)
+        if downloaded is None:
+            return None, "Failed to download page"
+
+        # extract just the article body, skip comments and tables
+        text = trafilatura.extract(
+            downloaded,
+            include_comments=False,
+            include_tables=False,
+            no_fallback=False
+        )
+
+        if text and len(text.split()) > 20:
+            # try to grab the title from page metadata too
+            metadata = trafilatura.extract_metadata(downloaded)
+            title = metadata.title if metadata and metadata.title else "Article"
+            return text, title
+
+        return None, "No meaningful content found"
+    except Exception as e:
+        return None, str(e)
+
+
 tokenizer, model = load_summarizer()
 
 # Streamlit resets variables on every interaction, so I need session state to remember inputs
@@ -45,15 +77,17 @@ if 'text_input' not in st.session_state:
     st.session_state.text_input = ""
 if 'final_summary' not in st.session_state:
     st.session_state.final_summary = None
+if 'url_input' not in st.session_state:
+    st.session_state.url_input = ""
 
 st.title("🤖 Automatic News Summarizer")
 st.write(f"Leverage advanced Natural Language Processing to summarise news articles. *(Hardware: {DEVICE.upper()})*")
 
-st.subheader("Select a Topic or Input Custom Text")
+st.subheader("Select a Topic, Paste a Link, or Input Custom Text")
 
 # Some preset articles
 football_text = "Wrexham's push for the League One play-offs continued with a hard-fought 1-0 victory against Mansfield Town at the Racecourse Ground. The match, played in front of a sold-out crowd, was decided by a clinical strike from star forward Paul Mullin in the 64th minute. Mansfield had dominated possession for large periods of the first half, testing the Wrexham defense with several well-timed crosses, but were unable to find a breakthrough. Wrexham goalkeeper Arthur Okonkwo made two vital saves to keep the score level before the break. In the second half, the hosts looked more dangerous on the counter-attack. Mullin's goal came after a swift transition, where he latched onto a through ball and fired low into the bottom corner. Mansfield pushed for an equalizer in the closing stages, hitting the post in injury time, but Wrexham held on for a vital three points. The win moves the Welsh club up to third in the table, while Mansfield remain in the hunt for a top-six spot despite the narrow defeat."
-space_text = "NASA’s Artemis II mission is currently preparing for a historic flight that will send four astronauts around the Moon and back to Earth. This mission marks the first time humans will visit the lunar vicinity since the Apollo 17 mission in 1972. The crew consists of Commander Reid Wiseman, Pilot Victor Glover, and Mission Specialists Christina Koch and Jeremy Hansen. Artemis II is a 10-day flight test designed to verify the Space Launch System (SLS) rocket and the Orion spacecraft’s life-support systems for crewed operations. Unlike later missions, Artemis II will not land on the surface; instead, it will perform a 'free-return trajectory,' using the Moon’s gravity to slingshot the spacecraft back toward Earth. This mission is a critical stepping stone for Artemis III, which aims to land the first woman and first person of color on the lunar surface."
+space_text = "NASA's Artemis II mission is currently preparing for a historic flight that will send four astronauts around the Moon and back to Earth. This mission marks the first time humans will visit the lunar vicinity since the Apollo 17 mission in 1972. The crew consists of Commander Reid Wiseman, Pilot Victor Glover, and Mission Specialists Christina Koch and Jeremy Hansen. Artemis II is a 10-day flight test designed to verify the Space Launch System (SLS) rocket and the Orion spacecraft's life-support systems for crewed operations. Unlike later missions, Artemis II will not land on the surface; instead, it will perform a 'free-return trajectory,' using the Moon's gravity to slingshot the spacecraft back toward Earth. This mission is a critical stepping stone for Artemis III, which aims to land the first woman and first person of color on the lunar surface."
 
 col_a, col_b, col_c = st.columns(3)
 if col_a.button("⚽ Football "):
@@ -63,10 +97,36 @@ if col_b.button("🚀 Space Mission"):
 if col_c.button(" Clear All"):
     st.session_state.text_input = ""
     st.session_state.final_summary = None
+    st.session_state.url_input = ""
 
-# Input field linked directly to my session state
+#  URL INPUT SECTION 
+# trafilatura handles the heavy lifting here: downloading the page, identifying the
+# main content, and stripping everything else. The extracted text gets dropped
+# straight into the text area so the user can review/edit before summarizing.
+st.divider()
+url_col, fetch_col = st.columns([4, 1])
+with url_col:
+    url_input = st.text_input(
+        "🔗 Article URL:",
+        key="url_input",
+        placeholder="https://www.bbc.co.uk/news/some-article"
+    )
+with fetch_col:
+    st.write("")
+    st.write("")
+    fetch_clicked = st.button("Fetch")
+
+if fetch_clicked and url_input.strip():
+    with st.spinner("Extracting article from URL..."):
+        text, title = extract_article_from_url(url_input.strip())
+        if text:
+            st.session_state.text_input = text
+            st.success(f"✅ Extracted: **{title}**")
+        else:
+            st.error(f"Could not extract article: {title}")
+
 article_text = st.text_area("Article Content:", height=200, key="text_input",
-                            placeholder="Enter article text here...")
+                            placeholder="Enter article text here or fetch from a URL above...")
 
 st.sidebar.header("Summarization Controls")
 max_len = st.sidebar.slider("Summary Max Length", 30, 300, 100)
