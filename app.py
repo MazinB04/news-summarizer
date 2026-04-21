@@ -13,14 +13,14 @@ st.set_page_config(page_title="AI News Summarizer", page_icon="🤖", layout="ce
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
 
-# @st.cache_resource is super important here so I only load the heavy model once.
+# @st.cache_resource is important here so I only load the heavy model once.
 # Otherwise, it reloads on every button click and crashes the cloud app.
 @st.cache_resource
 def load_summarizer():
     model_id = "MazinB04/FINETUNED_BART"
     tokenizer_id = "facebook/bart-large-cnn"
 
-    # Grab my huggingface token from streamlit secrets (cloud) or local env
+    # Grab my huggingface token from streamlit secrets (cloud)
     try:
         token = st.secrets["HF_TOKEN"]
     except Exception:
@@ -60,7 +60,7 @@ if col_a.button("⚽ Football "):
     st.session_state.text_input = football_text
 if col_b.button("🚀 Space Mission"):
     st.session_state.text_input = space_text
-if col_c.button("🧹 Clear All"):
+if col_c.button(" Clear All"):
     st.session_state.text_input = ""
     st.session_state.final_summary = None
 
@@ -111,7 +111,7 @@ if st.button("✨ Generate Summary", type="primary"):
 # Display results if I have a summary
 if st.session_state.get('final_summary'):
     st.divider()
-    st.subheader("🎯 Summary Output")
+    st.subheader(" Summary Output")
     st.success(st.session_state.final_summary)
 
     # Calculate how much I compressed the text
