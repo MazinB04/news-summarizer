@@ -73,7 +73,7 @@ max_len = st.sidebar.slider("Summary Max Length", 30, 300, 100)
 # Beam search gives better summaries but takes a bit longer to compute
 num_beams = st.sidebar.slider("Model Accuracy (Beams)", 1, 5, 4)
 
-if st.button("✨ Generate Summary", type="primary"):
+if st.button(" Generate Summary", type="primary"):
     if article_text.strip():
         input_word_count = len(article_text.split())
 
