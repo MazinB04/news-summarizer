@@ -42,9 +42,8 @@ def load_summarizer():
 def extract_article_from_url(url):
     """
     Uses trafilatura to pull the main article text from a URL.
-    Trafilatura is purpose-built for web article extraction — it strips out
+    Trafilatura is purpose-built for web article extraction , it removes 
     nav bars, ads, comments, and other junk automatically.
-    It also has built-in fallback extractors if the primary method fails.
     """
     try:
         downloaded = trafilatura.fetch_url(url)
